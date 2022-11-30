@@ -346,3 +346,94 @@ fn create_initial_types() -> String {
 
     output_text
 }
+
+
+/// Transform the contents of a syn File of Rust types into
+/// a string of valid Typescript types
+fn parse_syn_file(file: syn::File) -> String {
+    let mut output_text = String::new();
+
+    for item in file.items.iter() {
+        match item {
+            // This `Item::Type` enum variant matches our type alias
+            syn::Item::Type(item_type) => {
+                let type_text = parse_item_type(item_type);
+                output_text.push_str(&type_text);
+            }
+            syn::Item::Enum(item_enum) => {
+                let enum_text = parse_item_enum(item_enum);
+                output_text.push_str(&enum_text);
+            }
+            syn::Item::Struct(item_struct) => {
+                let struct_text = parse_item_struct(item_struct);
+                output_text.push_str(&struct_text);
+            }
+
+            _ => {
+                dbg!("Encountered an unimplemented token");
+            }
+        }
+    }
+
+    output_text
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn handles_type_alias() {
+        let mut input_file = File::open("./src/tests/type.rs").unwrap();
+
+        let mut input_file_text = String::new();
+
+        input_file.read_to_string(&mut input_file_text).unwrap();
+
+        let input_syntax: syn::File =
+            syn::parse_file(&input_file_text).expect("Unable to parse file");
+
+        let typescript_types = parse_syn_file(input_syntax);
+
+        assert_eq!(r#"export type NumberAlias = number;"#, &typescript_types);
+    }
+
+    #[test]
+    fn handles_struct() {
+        let mut input_file = File::open("./src/tests/struct.rs").unwrap();
+
+        let mut input_file_text = String::new();
+
+        input_file.read_to_string(&mut input_file_text).unwrap();
+
+        let input_syntax: syn::File =
+            syn::parse_file(&input_file_text).expect("Unable to parse file");
+
+        let typescript_types = parse_syn_file(input_syntax);
+
+        assert_eq!(
+            r#"export interface Person {name:string;age:number;enjoys_coffee:boolean;};"#,
+            &typescript_types
+        );
+    }
+
+    #[test]
+    fn handles_enum() {
+        let mut input_file = File::open("./src/tests/enum.rs").unwrap();
+
+        let mut input_file_text = String::new();
+
+        input_file.read_to_string(&mut input_file_text).unwrap();
+
+        let input_syntax: syn::File =
+            syn::parse_file(&input_file_text).expect("Unable to parse file");
+
+        let typescript_types = parse_syn_file(input_syntax);
+
+        assert_eq!(
+            r#"export type Colour =  | { t: "Red" , c: number} | { t: "Green" , c: number} | { t: "Blue" , c: number};"#,
+            &typescript_types
+        );
+    }
+}
